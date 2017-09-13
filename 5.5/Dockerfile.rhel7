@@ -1,4 +1,4 @@
-FROM rhel7.2
+FROM rhel7.2:latest
 
 # MySQL image for OpenShift.
 #
