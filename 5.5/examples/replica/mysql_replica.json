@@ -11,36 +11,57 @@
   },
   "parameters": [
     {
-      "name": "MYSQL_MASTER_SERVICE_NAME",
-      "description": "Service name for MySQL master service",
-      "value": "mysql-master"
+      "name": "MYSQL_IMAGE",
+      "value": "docker.io/rhmap/mysql",
+      "required": true
     },
     {
-      "name": "MYSQL_MASTER_USER",
-      "description": "The username used for master-slave replication",
-      "value": "master"
+      "name": "MYSQL_IMAGE_VERSION",
+      "value": "5.5-17",
+      "required": true
     },
     {
-      "name": "MYSQL_MASTER_PASSWORD",
-      "description": "The password used for the MYSQL_MASTER_USER",
-      "generate": "expression",
-      "from": "[a-zA-Z0-9]{12}"
+      "name": "MYSQL_MEMORY_LIMIT",
+      "displayName": "Memory Limit",
+      "description": "Maximum amount of memory the container can use.",
+      "value": "1Gi",
+      "required": true
+    },
+    {
+      "name": "DATABASE_SERVICE_NAME",
+      "displayName": "Master Database Service Name",
+      "description": "The name of the OpenShift Service exposed for the master database.",
+      "value": "mysql",
+      "required": true
+    },
+    {
+      "name": "SLAVE_SERVICE_NAME",
+      "displayName": "Slave Database Service Name",
+      "description": "The name of the OpenShift Service exposed for the slave database.",
+      "value": "mysql-slave",
+      "required": true
     },
     {
       "name": "MYSQL_USER",
-      "description": "The username that clients will use to connect to the server",
-      "value": "user"
+      "displayName": "MySQL User",
+      "description": "Username for MySQL user that will be used for accessing the database.",
+      "value": "coreadmin",
+      "required": true
     },
     {
       "name": "MYSQL_PASSWORD",
-      "description": "The password for the MYSQL_USER",
+      "displayName": "MySQL Password",
+      "description": "Password for the MySQL user.",
       "generate": "expression",
-      "from": "[a-zA-Z0-9]{12}"
+      "from": "[a-zA-Z0-9]{16}",
+      "required": true
     },
     {
       "name": "MYSQL_DATABASE",
-      "description": "The name of the database that will be created and replicated",
-      "value": "userdb"
+      "displayName": "MySQL Database Name",
+      "description": "Name of the MySQL database accessed.",
+      "value": "shard0",
+      "required": true
     },
     {
       "name": "MYSQL_ROOT_PASSWORD",
@@ -52,16 +73,54 @@
       "name": "VOLUME_CAPACITY",
       "displayName": "Volume Capacity",
       "description": "Volume space available for data, e.g. 512Mi, 2Gi.",
-      "value": "1Gi",
+      "value": "5Gi",
+      "required": true
+    },
+    {
+      "name": "UPS_USER",
+      "displayName": "UPS user in MySQL",
+      "description": "Name of the MySQL user for UPS",
+      "value": "unifiedpush",
+      "required": true
+    },
+    {
+      "name": "UPS_PASSWORD",
+      "displayName": "Password for the UPS user.",
+      "description": "Password for the UPS user.",
+      "generate": "expression",
+      "from": "[a-zA-Z0-9]{16}",
+      "required": true
+    },
+    {
+      "name": "UPS_DATABASE",
+      "displayName": "Name of the UPS database accessed.",
+      "description": "Name of the UPS database accessed.",
+      "value": "unifiedpush",
       "required": true
     }
   ],
   "objects": [
     {
+      "kind": "ConfigMap",
+      "apiVersion": "v1",
+      "metadata": {
+        "name": "mysql-keys"
+      },
+      "data": {
+        "mysql-host": "${DATABASE_SERVICE_NAME}",
+        "mysql-millicore-user": "${MYSQL_USER}",
+        "mysql-millicore-password": "${MYSQL_PASSWORD}",
+        "mysql-millicore-database": "${MYSQL_DATABASE}",
+        "mysql-ups-user": "${UPS_USER}",
+        "mysql-ups-password": "${UPS_PASSWORD}",
+        "mysql-ups-database": "${UPS_DATABASE}"
+      }
+    },
+    {
       "kind": "PersistentVolumeClaim",
       "apiVersion": "v1",
       "metadata": {
-        "name": "mysql-master"
+        "name": "${DATABASE_SERVICE_NAME}"
       },
       "spec": {
         "accessModes": [
@@ -78,7 +137,7 @@
       "kind": "PersistentVolumeClaim",
       "apiVersion": "v1",
       "metadata": {
-        "name": "mysql-slave"
+        "name": "${SLAVE_SERVICE_NAME}"
       },
       "spec": {
         "accessModes": [
@@ -95,21 +154,21 @@
       "kind": "Service",
       "apiVersion": "v1",
       "metadata": {
-        "name": "${MYSQL_MASTER_SERVICE_NAME}",
+        "name": "${DATABASE_SERVICE_NAME}",
         "labels": {
-          "name": "mysql-master"
+          "name": "mysql"
         }
       },
       "spec": {
         "ports": [
           {
+            "name": "mysql",
             "port": 3306
           }
         ],
         "selector": {
-          "name": "mysql-master"
-        },
-        "clusterIP": "None"
+          "name": "${DATABASE_SERVICE_NAME}"
+        }
       }
     },
     {
@@ -124,20 +183,20 @@
       "spec": {
         "ports": [
           {
+            "name": "mysql-slave",
             "port": 3306
           }
         ],
         "selector": {
-          "name": "mysql-slave"
-        },
-        "clusterIP": "None"
+          "name": "${SLAVE_SERVICE_NAME}"
+        }
       }
     },
     {
       "kind": "DeploymentConfig",
       "apiVersion": "v1",
       "metadata": {
-        "name": "mysql-master"
+        "name": "${DATABASE_SERVICE_NAME}"
       },
       "spec": {
         "strategy": {
@@ -150,27 +209,27 @@
         ],
         "replicas": 1,
         "selector": {
-          "name": "mysql-master"
+          "name": "${DATABASE_SERVICE_NAME}"
         },
         "template": {
           "metadata": {
             "labels": {
-              "name": "mysql-master"
+              "name": "${DATABASE_SERVICE_NAME}"
             }
           },
           "spec": {
             "volumes": [
               {
-                "name": "mysql-master-data",
+                "name": "mysql-data",
                 "persistentVolumeClaim": {
-                  "claimName": "mysql-master"
+                  "claimName": "${DATABASE_SERVICE_NAME}"
                 }
               }
             ],
             "containers": [
               {
-                "name": "server",
-                "image": "openshift/mysql-55-centos7",
+                "name": "mysql",
+                "image": "scoady/mysql-55-centos7",
                 "args": [
                   "run-mysqld-master"
                 ],
@@ -181,33 +240,63 @@
                 ],
                 "env": [
                   {
-                    "name": "MYSQL_MASTER_USER",
-                    "value": "${MYSQL_MASTER_USER}"
-                  },
-                  {
-                    "name": "MYSQL_MASTER_PASSWORD",
-                    "value": "${MYSQL_MASTER_PASSWORD}"
-                  },
-                  {
-                    "name": "MYSQL_USER",
-                    "value": "${MYSQL_USER}"
-                  },
-                  {
-                    "name": "MYSQL_PASSWORD",
-                    "value": "${MYSQL_PASSWORD}"
-                  },
-                  {
-                    "name": "MYSQL_DATABASE",
-                    "value": "${MYSQL_DATABASE}"
-                  },
-                  {
-                    "name": "MYSQL_ROOT_PASSWORD",
-                    "value": "${MYSQL_ROOT_PASSWORD}"
-                  }
+                      "name": "MYSQL_USER",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-millicore-user"
+                        }
+                      }
+                    },
+                    {
+                      "name": "MYSQL_PASSWORD",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-millicore-password"
+                        }
+                      }
+                    },
+                    {
+                      "name": "MYSQL_DATABASE",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-millicore-database"
+                        }
+                      }
+                    },
+                    {
+                      "name": "UPS_USER",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-ups-user"
+                        }
+                      }
+                    },
+                    {
+                      "name": "UPS_PASSWORD",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-ups-password"
+                        }
+                      }
+                    },
+                    {
+                      "name": "UPS_DATABASE",
+                      "valueFrom": {
+                        "configMapKeyRef": {
+                          "name": "mysql-keys",
+                          "key": "mysql-ups-database"
+                        }
+                      }
+                    }
                 ],
                 "volumeMounts": [
                   {
-                    "name": "mysql-master-data",
+                    "name": "mysql-data",
                     "mountPath": "/var/lib/mysql/data"
                   }
                 ],
@@ -222,7 +311,7 @@
       "kind": "DeploymentConfig",
       "apiVersion": "v1",
       "metadata": {
-        "name": "mysql-slave"
+        "name": "${SLAVE_SERVICE_NAME}"
       },
       "spec": {
         "strategy": {
@@ -235,12 +324,12 @@
         ],
         "replicas": 1,
         "selector": {
-          "name": "mysql-slave"
+          "name": "${SLAVE_SERVICE_NAME}"
         },
         "template": {
           "metadata": {
             "labels": {
-              "name": "mysql-slave"
+              "name": "${SLAVE_SERVICE_NAME}"
             }
           },
           "spec": {
@@ -248,14 +337,14 @@
               {
                 "name": "mysql-slave-data",
                 "persistentVolumeClaim": {
-                  "claimName": "mysql-slave"
+                  "claimName": "${SLAVE_SERVICE_NAME}"
                 }
               }
             ],
             "containers": [
               {
                 "name": "server",
-                "image": "openshift/mysql-55-centos7",
+                "image": "scoady/mysql-55-centos7",
                 "args": [
                   "run-mysqld-slave"
                 ],
@@ -266,20 +355,67 @@
                 ],
                 "env": [
                   {
-                    "name": "MYSQL_MASTER_SERVICE_NAME",
-                    "value": "${MYSQL_MASTER_SERVICE_NAME}"
+                    "name": "MYSQL_USER",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-millicore-user"
+                      }
+                    }
                   },
                   {
-                    "name": "MYSQL_MASTER_USER",
-                    "value": "${MYSQL_MASTER_USER}"
+                    "name": "DATABASE_SERVICE_NAME",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-host"
+                      }
+                    }
                   },
                   {
-                    "name": "MYSQL_MASTER_PASSWORD",
-                    "value": "${MYSQL_MASTER_PASSWORD}"
+                    "name": "MYSQL_PASSWORD",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-millicore-password"
+                      }
+                    }
                   },
                   {
                     "name": "MYSQL_DATABASE",
-                    "value": "${MYSQL_DATABASE}"
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-millicore-database"
+                      }
+                    }
+                  },
+                  {
+                    "name": "UPS_USER",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-ups-user"
+                      }
+                    }
+                  },
+                  {
+                    "name": "UPS_PASSWORD",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-ups-password"
+                      }
+                    }
+                  },
+                  {
+                    "name": "UPS_DATABASE",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-ups-database"
+                      }
+                    }
                   }
                 ],
                 "volumeMounts": [
