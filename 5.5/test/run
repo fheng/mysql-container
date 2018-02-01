@@ -124,7 +124,7 @@ function run_change_password_test() {
 }
 
 function run_replication_test() {
-  local cluster_args="-e MYSQL_MASTER_USER=master -e MYSQL_MASTER_PASSWORD=master -e MYSQL_DATABASE=db"
+  local cluster_args="-e MYSQL_USER=master -e MYSQL_PASSWORD=master -e MYSQL_DATABASE=db"
   local max_attempts=30
 
   # Run the MySQL master
@@ -136,7 +136,7 @@ function run_replication_test() {
   master_ip=$(get_container_ip master.cid)
 
   # Run the MySQL slave
-  docker run $cluster_args -e MYSQL_MASTER_SERVICE_NAME=${master_ip} \
+  docker run $cluster_args -e DATABASE_SERVICE_NAME=${master_ip} \
     -e MYSQL_INNODB_BUFFER_POOL_SIZE=5M \
     -d --cidfile ${CIDFILE_DIR}/slave.cid $IMAGE_NAME mysqld-slave >/dev/null
   local slave_ip

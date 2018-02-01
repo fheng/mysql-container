@@ -178,9 +178,9 @@ function server_id() {
 
 function wait_for_mysql_master() {
   while true; do
-    log_info "Waiting for MySQL master (${MYSQL_MASTER_SERVICE_NAME}) to accept connections ..."
-    mysqladmin --host=${MYSQL_MASTER_SERVICE_NAME} --user="${MYSQL_MASTER_USER}" \
-      --password="${MYSQL_MASTER_PASSWORD}" ping &>/dev/null && log_info "MySQL master is ready" && return 0
+    log_info "Waiting for MySQL master (${DATABASE_SERVICE_NAME}) to accept connections ..."
+    mysqladmin --host=${DATABASE_SERVICE_NAME} --user="${MYSQL_USER}" \
+      --password="${MYSQL_PASSWORD}" ping &>/dev/null && log_info "MySQL master is ready" && return 0
     sleep 1
   done
 }
