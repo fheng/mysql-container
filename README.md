@@ -7,7 +7,6 @@ Users can choose between RHEL and CentOS based images.
 For more information about using these images with OpenShift, please see the
 official [OpenShift Documentation](https://docs.openshift.org/latest/using_images/db_images/mysql.html).
 
-
 Versions
 ---------------
 MySQL versions currently provided are:
