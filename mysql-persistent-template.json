@@ -23,7 +23,9 @@
         "mysql-millicore-database": "${MYSQL_DATABASE}",
         "mysql-ups-user": "${UPS_USER}",
         "mysql-ups-password": "${UPS_PASSWORD}",
-        "mysql-ups-database": "${UPS_DATABASE}"
+        "mysql-ups-database": "${UPS_DATABASE}",
+        "mysql-backup-user": "${BACKUP_USER}",
+        "mysql-backup-password": "${BACKUP_PASSWORD}"
       }
     },
     {
@@ -174,6 +176,24 @@
                         "key": "mysql-ups-database"
                       }
                     }
+                  },
+                  {
+                    "name": "BACKUP_USER",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-backup-user"
+                      }
+                    }
+                  },
+                  {
+                    "name": "BACKUP_PASSWORD",
+                    "valueFrom": {
+                      "configMapKeyRef": {
+                        "name": "mysql-keys",
+                        "key": "mysql-backup-password"
+                      }
+                    }
                   }
                 ],
                 "resources": {
@@ -282,6 +302,21 @@
       "displayName": "Name of the UPS database accessed.",
       "description": "Name of the UPS database accessed.",
       "value": "unifiedpush",
+      "required": true
+    },
+    {
+      "name": "BACKUP_USER",
+      "displayName": "Backup user in MySQL",
+      "description": "Name of the MySQL user for performing backups",
+      "value": "backup",
+      "required": true
+    },
+    {
+      "name": "BACKUP_PASSWORD",
+      "displayName": "Password for the Backup user.",
+      "description": "Password for the Backup user.",
+      "generate": "expression",
+      "from": "[a-zA-Z0-9]{16}",
       "required": true
     }
   ],

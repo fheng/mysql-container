@@ -132,6 +132,14 @@ mysql $mysql_flags <<EOSQL
 EOSQL
   fi
 
+  if [ -v BACKUP_USER ]; then
+    log_info "Creating user specified by MYSQL_USER (${BACKUP_USER}) ..."
+mysql $mysql_flags <<EOSQL
+    CREATE USER '${BACKUP_USER}'@'%' IDENTIFIED BY '${BACKUP_PASSWORD}';
+    GRANT SELECT,LOCK TABLES ON *.* TO '${BACKUP_USER}'@'%';
+    FLUSH PRIVILEGES;
+EOSQL
+  fi
 
   if [ -v MYSQL_DATABASE ]; then
     log_info "Creating database ${MYSQL_DATABASE} ..."
